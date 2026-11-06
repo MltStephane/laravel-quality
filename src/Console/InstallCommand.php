@@ -16,6 +16,8 @@ final class InstallCommand extends Command
 
     protected $description = 'Install the shared PHPStan config, architecture test, composer scripts and test suite';
 
+    private const string SHARED_EXTENSION = 'vendor/mltstephane/laravel-quality/extension.neon';
+
     /**
      * @var array<string, string|array<int, string>>
      */
@@ -43,13 +45,47 @@ final class InstallCommand extends Command
     {
         foreach (['phpstan.neon', 'phpstan.neon.dist'] as $config) {
             if ($files->exists(base_path($config))) {
-                $this->components->warn("{$config} existe déjà : ajoute l'include vendor/mltstephane/laravel-quality/extension.neon à la main.");
+                $this->includeSharedExtension($files, $config);
 
                 return;
             }
         }
 
         $this->publishStub($files, 'phpstan.neon.dist.stub', base_path('phpstan.neon.dist'));
+    }
+
+    /**
+     * Adds the shared extension to an existing config and drops the parameters it now provides.
+     * A parameter with another value (e.g. a higher level) stays: it overrides the shared one.
+     */
+    private function includeSharedExtension(Filesystem $files, string $config): void
+    {
+        $path = base_path($config);
+        $neon = $files->get($path);
+
+        if (str_contains($neon, self::SHARED_EXTENSION)) {
+            $this->components->twoColumnDetail($config, 'extension partagée déjà incluse');
+
+            return;
+        }
+
+        $neon = preg_replace('/^[ \t]*(level:[ \t]*6|reportUnmatchedIgnoredErrors:[ \t]*true|reportIgnoresWithoutComments:[ \t]*true)[ \t]*\R/m', '', $neon);
+
+        if (preg_match('/^includes:[ \t]*\R((?:[ \t]+-.*\R?)*)/m', $neon, $includes, PREG_OFFSET_CAPTURE) === 1) {
+            [$items, $offset] = $includes[1];
+            $lines = preg_split('/(?<=\n)/', $items, flags: PREG_SPLIT_NO_EMPTY);
+            $indent = preg_match('/^([ \t]+)-/', $items, $match) === 1 ? $match[1] : '    ';
+            $baselineIndex = array_key_first(array_filter($lines, fn (string $line): bool => str_contains($line, 'baseline')));
+
+            // The baseline must stay last so its ignores apply to every included rule.
+            array_splice($lines, $baselineIndex ?? count($lines), 0, ["{$indent}- ".self::SHARED_EXTENSION."\n"]);
+            $neon = substr_replace($neon, implode('', $lines), $offset, strlen($items));
+        } else {
+            $neon = "includes:\n    - ".self::SHARED_EXTENSION."\n\n".$neon;
+        }
+
+        $files->put($path, $neon);
+        $this->components->twoColumnDetail($config, 'extension partagée incluse');
     }
 
     private function publishStub(Filesystem $files, string $stub, string $destination): void

@@ -32,7 +32,7 @@ Before the package is on Packagist, declare the repository first:
 composer config repositories.laravel-quality vcs https://github.com/MltStephane/laravel-quality
 ```
 
-An existing `phpstan.neon(.dist)` is kept: add `vendor/mltstephane/laravel-quality/extension.neon` to its `includes`.
+An existing `phpstan.neon(.dist)` is completed, not replaced: the shared extension is added to `includes` (before the baseline), and the parameters it provides are removed when they hold the same value. A different value, such as a higher `level`, stays and overrides the shared one. Composer does not run a dependency's scripts: run `quality:install` once after `composer require`; it is safe to rerun.
 
 ## Use the preset
 
