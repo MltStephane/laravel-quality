@@ -1,0 +1,55 @@
+{
+    "name": "mltstephane/laravel-quality",
+    "description": "Shared static analysis and architecture rules for Laravel projects: Larastan base config, Pest arch preset and a quality:install command.",
+    "type": "library",
+    "license": "MIT",
+    "keywords": [
+        "laravel",
+        "phpstan",
+        "larastan",
+        "pest",
+        "architecture"
+    ],
+    "require": {
+        "php": "^8.3",
+        "illuminate/console": "^12.0|^13.0",
+        "illuminate/filesystem": "^12.0|^13.0",
+        "illuminate/support": "^12.0|^13.0",
+        "larastan/larastan": "^3.14",
+        "pestphp/pest": "^4.0",
+        "phpstan/phpstan-deprecation-rules": "^2.0"
+    },
+    "require-dev": {
+        "laravel/pint": "^1.0",
+        "orchestra/testbench": "^10.0|^11.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "MltStephane\\LaravelQuality\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "MltStephane\\LaravelQuality\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "MltStephane\\LaravelQuality\\QualityServiceProvider"
+            ]
+        }
+    },
+    "scripts": {
+        "test": "pest",
+        "fix": "pint"
+    },
+    "config": {
+        "sort-packages": true,
+        "allow-plugins": {
+            "pestphp/pest-plugin": true
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}

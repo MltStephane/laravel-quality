@@ -1,0 +1,13 @@
+<?php
+
+use MltStephane\LaravelQuality\Pest\ArchPreset;
+
+ArchPreset::register();
+
+describe('Shared Quality Architecture', function (): void {
+    arch('layers and debug calls')->preset()->laravelQuality();
+
+    arch('app code does not use insecure functions')->preset()->security();
+
+    arch('app code follows the php preset')->preset()->php();
+});

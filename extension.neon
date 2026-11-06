@@ -1,0 +1,7 @@
+# Base PHPStan parameters shared by every project.
+# Larastan and deprecation rules are included by the project's phpstan.neon.dist
+# (relative includes would break when this package is installed as a symlink).
+parameters:
+    level: 6
+    reportUnmatchedIgnoredErrors: true
+    reportIgnoresWithoutComments: true
