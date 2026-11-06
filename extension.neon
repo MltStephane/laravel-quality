@@ -5,3 +5,5 @@ parameters:
     level: 6
     reportUnmatchedIgnoredErrors: true
     reportIgnoresWithoutComments: true
+    # Read the casts declared in Model::casts() (dates, enums, custom casts), not only its return type.
+    parseModelCastsMethod: true
