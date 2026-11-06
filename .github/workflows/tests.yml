@@ -13,8 +13,12 @@ jobs:
       matrix:
         php: ['8.3', '8.4', '8.5']
         laravel: ['12.*', '13.*']
+        pest: ['4.*', '5.*']
+        exclude:
+          - php: '8.3'
+            pest: '5.*'
 
-    name: PHP ${{ matrix.php }} - Laravel ${{ matrix.laravel }}
+    name: PHP ${{ matrix.php }} - Laravel ${{ matrix.laravel }} - Pest ${{ matrix.pest }}
 
     steps:
       - uses: actions/checkout@v6
@@ -27,7 +31,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          composer require "illuminate/support:${{ matrix.laravel }}" --no-interaction --no-update
+          composer require "illuminate/support:${{ matrix.laravel }}" "pestphp/pest:${{ matrix.pest }}" --no-interaction --no-update
           composer update --prefer-dist --no-interaction --no-progress
 
       - name: Code style

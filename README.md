@@ -13,7 +13,7 @@ Project-specific rules (business namespaces, `ignoring()`, baseline) stay in eac
 
 ## Requirements
 
-PHP 8.3+, Laravel 12 or 13, Pest 4.
+PHP 8.3+, Laravel 12 or 13, Pest 4 or 5 (Pest 5 needs PHP 8.4+).
 
 ## Install
 
