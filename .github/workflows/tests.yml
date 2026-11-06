@@ -17,6 +17,9 @@ jobs:
         exclude:
           - php: '8.3'
             pest: '5.*'
+          # Testbench 10 (Laravel 12) does not install alongside Pest 5.
+          - laravel: '12.*'
+            pest: '5.*'
 
     name: PHP ${{ matrix.php }} - Laravel ${{ matrix.laravel }} - Pest ${{ matrix.pest }}
 
