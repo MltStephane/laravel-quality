@@ -1,0 +1,51 @@
+name: quality
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          # gitleaks scans the whole history.
+          fetch-depth: 0
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '__PHP_VERSION__'
+          tools: composer:v2
+          coverage: none
+
+      - name: Install dependencies
+        run: composer install --prefer-dist --no-interaction --no-progress
+
+      - name: Prepare the application
+        run: |
+          php -r "file_exists('.env') || copy('.env.example', '.env');"
+          php artisan key:generate
+
+      - name: Code style
+        run: vendor/bin/pint --test
+
+      - name: Static analysis
+        run: composer stan
+
+      - name: Architecture
+        run: vendor/bin/pest --testsuite=Architecture
+
+      - name: Secrets
+        run: docker run --rm -v "${{ github.workspace }}:/repo" ghcr.io/gitleaks/gitleaks:latest detect --source /repo --redact --verbose
+
+      - name: No ignored file is tracked
+        run: |
+          ignored="$(git ls-files -ci --exclude-standard)"
+          if [ -n "$ignored" ]; then
+            echo "Tracked files matched by .gitignore (git rm --cached them):"
+            echo "$ignored"
+            exit 1
+          fi

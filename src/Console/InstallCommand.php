@@ -6,17 +6,22 @@ namespace MltStephane\LaravelQuality\Console;
 
 use Illuminate\Console\Command;
 use Illuminate\Filesystem\Filesystem;
+use MltStephane\LaravelQuality\PhpstanConfig;
 
 /**
  * Wires the shared quality setup into the host project. Never overwrites an existing file or script.
  */
 final class InstallCommand extends Command
 {
-    protected $signature = 'quality:install';
+    protected $signature = 'quality:install
+        {--ci : Publish the GitHub Actions quality workflow}
+        {--hooks : Publish the lefthook pre-commit hooks}';
 
-    protected $description = 'Install the shared PHPStan config, architecture test, composer scripts and test suite';
+    protected $description = 'Install the shared PHPStan and Pint configs, architecture test, composer scripts and test suite';
 
-    private const string SHARED_EXTENSION = 'vendor/mltstephane/laravel-quality/extension.neon';
+    private const string SHARED_EXTENSION = PhpstanConfig::SHARED_EXTENSION;
+
+    private const string DEFAULT_PHP_VERSION = '8.4';
 
     private const array THIRD_PARTY_INCLUDES = [
         'vendor/larastan/larastan/extension.neon',
@@ -36,19 +41,70 @@ final class InstallCommand extends Command
     {
         $this->publishPhpstanConfig($files);
         $this->publishStub($files, 'phpstan-baseline.neon.stub', base_path('phpstan-baseline.neon'));
+        $this->publishStub($files, 'pint.json', base_path('pint.json'));
         $this->publishStub($files, 'QualityTest.php.stub', base_path('tests/Architectures/QualityTest.php'));
         $this->addComposerScripts($files);
         $this->addArchitectureTestSuite($files);
 
-        $this->newLine();
-        $this->line('CI : ajoute une étape `composer stan` après la génération de la clé, et vérifie que la suite Architecture tourne.');
+        if ($this->option('ci')) {
+            $this->publishStub($files, '.github/workflows/quality.yml', base_path('.github/workflows/quality.yml'), [
+                '__PHP_VERSION__' => $this->phpVersion($files),
+            ]);
+        }
+
+        if ($this->option('hooks')) {
+            $this->publishHooks($files);
+        }
+
+        $this->warnAboutPhpstanConfig($files);
+
+        if (! $this->option('ci')) {
+            $this->newLine();
+            $this->line('CI : ajoute une étape `composer stan` après la génération de la clé, et vérifie que la suite Architecture tourne (ou relance avec --ci).');
+        }
 
         return self::SUCCESS;
     }
 
+    /**
+     * A level kept below the shared one survives the completion of an existing config: say so.
+     */
+    private function warnAboutPhpstanConfig(Filesystem $files): void
+    {
+        foreach (PhpstanConfig::find($files, base_path())?->problems() ?? [] as $problem) {
+            $this->components->warn($problem.' quality:check-config échouera.');
+        }
+    }
+
+    private function publishHooks(Filesystem $files): void
+    {
+        foreach (['lefthook.yaml', '.lefthook.yml', '.lefthook.yaml'] as $existing) {
+            if ($files->exists(base_path($existing))) {
+                $this->components->twoColumnDetail($existing, 'conservé');
+
+                return;
+            }
+        }
+
+        $this->publishStub($files, 'lefthook.yml', base_path('lefthook.yml'));
+        $this->line('Hooks : installe lefthook et gitleaks, puis lance `lefthook install`.');
+    }
+
+    /**
+     * The PHP version CI runs: the platform pinned in composer.json, else the lowest version required.
+     */
+    private function phpVersion(Filesystem $files): string
+    {
+        /** @var array{require?: array<string, string>, config?: array{platform?: array<string, string>}} $composer */
+        $composer = json_decode($files->get(base_path('composer.json')), true, flags: JSON_THROW_ON_ERROR);
+        $constraint = $composer['config']['platform']['php'] ?? $composer['require']['php'] ?? '';
+
+        return preg_match('/(\d+\.\d+)/', $constraint, $match) === 1 ? $match[1] : self::DEFAULT_PHP_VERSION;
+    }
+
     private function publishPhpstanConfig(Filesystem $files): void
     {
-        foreach (['phpstan.neon', 'phpstan.neon.dist'] as $config) {
+        foreach (PhpstanConfig::FILES as $config) {
             if ($files->exists(base_path($config))) {
                 $this->completeExistingConfig($files, $config);
 
@@ -121,7 +177,10 @@ final class InstallCommand extends Command
         ];
     }
 
-    private function publishStub(Filesystem $files, string $stub, string $destination): void
+    /**
+     * @param  array<string, string>  $replacements
+     */
+    private function publishStub(Filesystem $files, string $stub, string $destination, array $replacements = []): void
     {
         $relativeDestination = str_replace(base_path().DIRECTORY_SEPARATOR, '', $destination);
 
@@ -132,7 +191,7 @@ final class InstallCommand extends Command
         }
 
         $files->ensureDirectoryExists(dirname($destination));
-        $files->copy(dirname(__DIR__, 2)."/stubs/{$stub}", $destination);
+        $files->put($destination, strtr($files->get(dirname(__DIR__, 2)."/stubs/{$stub}"), $replacements));
         $this->components->twoColumnDetail($relativeDestination, 'créé');
     }
 

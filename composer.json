@@ -30,7 +30,9 @@
     },
     "autoload-dev": {
         "psr-4": {
-            "MltStephane\\LaravelQuality\\Tests\\": "tests/"
+            "MltStephane\\LaravelQuality\\Tests\\": "tests/",
+            "App\\": "tests/Fixtures/App/",
+            "Livewire\\": "tests/Fixtures/Livewire/"
         }
     },
     "extra": {

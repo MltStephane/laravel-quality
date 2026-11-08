@@ -7,3 +7,41 @@ parameters:
     reportIgnoresWithoutComments: true
     # Read the casts declared in Model::casts() (dates, enums, custom casts), not only its return type.
     parseModelCastsMethod: true
+    # Each rule can be turned off with `false`. Lists merge with the project's values:
+    # write `presentationNamespaces!: [...]` to replace them.
+    laravelQuality:
+        noModelWriteInPresentation: true
+        noStringRole: true
+        noBroadCatchWithoutRethrow: true
+        missingLockedIdProperty: true
+        presentationNamespaces:
+            - App\Livewire
+            - App\Http
+
+parametersSchema:
+    laravelQuality: structure([
+        noModelWriteInPresentation: bool(),
+        noStringRole: bool(),
+        noBroadCatchWithoutRethrow: bool(),
+        missingLockedIdProperty: bool(),
+        presentationNamespaces: listOf(string()),
+    ])
+
+conditionalTags:
+    MltStephane\LaravelQuality\PHPStan\Rules\NoModelWriteInPresentationRule:
+        phpstan.rules.rule: %laravelQuality.noModelWriteInPresentation%
+    MltStephane\LaravelQuality\PHPStan\Rules\NoStringRoleRule:
+        phpstan.rules.rule: %laravelQuality.noStringRole%
+    MltStephane\LaravelQuality\PHPStan\Rules\NoBroadCatchWithoutRethrowRule:
+        phpstan.rules.rule: %laravelQuality.noBroadCatchWithoutRethrow%
+    MltStephane\LaravelQuality\PHPStan\Rules\MissingLockedIdPropertyRule:
+        phpstan.rules.rule: %laravelQuality.missingLockedIdProperty%
+
+services:
+    -
+        class: MltStephane\LaravelQuality\PHPStan\Rules\NoModelWriteInPresentationRule
+        arguments:
+            presentationNamespaces: %laravelQuality.presentationNamespaces%
+    - MltStephane\LaravelQuality\PHPStan\Rules\NoStringRoleRule
+    - MltStephane\LaravelQuality\PHPStan\Rules\NoBroadCatchWithoutRethrowRule
+    - MltStephane\LaravelQuality\PHPStan\Rules\MissingLockedIdPropertyRule

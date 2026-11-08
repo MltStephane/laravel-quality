@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MltStephane\LaravelQuality;
 
 use Illuminate\Support\ServiceProvider;
+use MltStephane\LaravelQuality\Console\CheckConfigCommand;
 use MltStephane\LaravelQuality\Console\InstallCommand;
 
 final class QualityServiceProvider extends ServiceProvider
@@ -12,7 +13,7 @@ final class QualityServiceProvider extends ServiceProvider
     public function boot(): void
     {
         if ($this->app->runningInConsole()) {
-            $this->commands([InstallCommand::class]);
+            $this->commands([InstallCommand::class, CheckConfigCommand::class]);
         }
     }
 }

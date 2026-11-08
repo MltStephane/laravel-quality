@@ -1,0 +1,11 @@
+# Git hooks run by lefthook (https://lefthook.dev): run `lefthook install` once per clone.
+pre-commit:
+  piped: true
+  commands:
+    pint:
+      run: vendor/bin/pint --dirty
+      stage_fixed: true
+    gitleaks:
+      run: gitleaks protect --staged --redact --verbose
+    stan:
+      run: composer stan
