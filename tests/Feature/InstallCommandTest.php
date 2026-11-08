@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 use Illuminate\Filesystem\Filesystem;
 
 beforeEach(function (): void {
@@ -121,4 +123,52 @@ it('leaves the third-party includes to phpstan/extension-installer', function ()
 
     expect($this->files->get($this->projectPath.'/phpstan.neon'))
         ->toBe("includes:\n    - vendor/mltstephane/laravel-quality/extension.neon\n    - phpstan-baseline.neon\n\nparameters:\n");
+});
+
+it('publishes the pint config without overwriting an existing one', function (): void {
+    $this->artisan('quality:install')->assertSuccessful();
+
+    expect(json_decode($this->files->get($this->projectPath.'/pint.json'), true)['rules'])
+        ->toBe(['declare_strict_types' => true, 'fully_qualified_strict_types' => true]);
+
+    $this->files->put($this->projectPath.'/pint.json', '{"preset": "psr12"}');
+    $this->artisan('quality:install')->assertSuccessful();
+
+    expect($this->files->get($this->projectPath.'/pint.json'))->toBe('{"preset": "psr12"}');
+});
+
+it('publishes the CI workflow and the git hooks only on demand', function (): void {
+    $this->artisan('quality:install')->assertSuccessful();
+
+    expect($this->projectPath.'/.github/workflows/quality.yml')->not->toBeFile()
+        ->and($this->projectPath.'/lefthook.yml')->not->toBeFile();
+
+    $this->artisan('quality:install', ['--ci' => true, '--hooks' => true])->assertSuccessful();
+
+    expect($this->files->get($this->projectPath.'/.github/workflows/quality.yml'))
+        ->toContain('vendor/bin/pint --test', 'composer stan', '--testsuite=Architecture', 'detect --source /repo', 'git ls-files -ci --exclude-standard')
+        ->and($this->files->get($this->projectPath.'/lefthook.yml'))
+        ->toContain('pint --dirty', 'gitleaks protect --staged', 'composer stan');
+});
+
+it('runs CI on the PHP version of composer.json', function (string $composerPhp, array $platform, string $ciPhp): void {
+    $composer = json_decode($this->files->get($this->projectPath.'/composer.json'), true);
+    $composer['require'] = ['php' => $composerPhp];
+    $composer['config'] = $platform === [] ? [] : ['platform' => $platform];
+    $this->files->put($this->projectPath.'/composer.json', json_encode($composer));
+
+    $this->artisan('quality:install', ['--ci' => true])->assertSuccessful();
+
+    expect($this->files->get($this->projectPath.'/.github/workflows/quality.yml'))->toContain("php-version: '{$ciPhp}'");
+})->with([
+    'lowest required version' => ['^8.3|^8.4', [], '8.3'],
+    'pinned platform' => ['^8.2', ['php' => '8.4.1'], '8.4'],
+]);
+
+it('warns when the project config lowers the level', function (): void {
+    $this->files->put($this->projectPath.'/phpstan.neon', "parameters:\n    level: 5\n");
+
+    $this->artisan('quality:install')
+        ->expectsOutputToContain('phpstan.neon fixe level: 5')
+        ->assertSuccessful();
 });
