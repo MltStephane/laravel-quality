@@ -4,40 +4,38 @@ declare(strict_types=1);
 
 namespace MltStephane\LaravelQuality\PHPStan\Rules;
 
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\Relation;
+use MltStephane\LaravelQuality\PHPStan\PresentationLayer;
 use PhpParser\Node;
 use PhpParser\Node\Expr\CallLike;
 use PhpParser\Node\Expr\MethodCall;
 use PhpParser\Node\Expr\StaticCall;
 use PhpParser\Node\Identifier;
-use PhpParser\Node\Name;
 use PHPStan\Analyser\Scope;
 use PHPStan\Rules\Rule;
 use PHPStan\Rules\RuleErrorBuilder;
-use PHPStan\Type\ObjectType;
-use PHPStan\Type\Type;
-use PHPStan\Type\TypeCombinator;
 
 /**
- * Livewire components and HTTP code read and write models through actions, not Eloquent directly.
+ * Livewire components and HTTP code write models through actions, not Eloquent directly.
+ * Reads are NoQueryInPresentationRule's concern.
  *
  * @implements Rule<CallLike>
  */
 final class NoModelWriteInPresentationRule implements Rule
 {
-    private const array FORBIDDEN_METHODS = [
-        'query', 'create', 'forcecreate', 'firstorcreate', 'updateorcreate', 'insert', 'upsert',
+    private const array WRITE_METHODS = [
+        'create', 'forcecreate', 'firstorcreate', 'updateorcreate', 'insert', 'upsert',
         'destroy', 'save', 'update', 'delete', 'forcedelete',
     ];
 
-    private const array ELOQUENT_CLASSES = [Model::class, Builder::class, Relation::class];
+    private readonly PresentationLayer $presentationLayer;
 
     /**
      * @param  array<int, string>  $presentationNamespaces
      */
-    public function __construct(private readonly array $presentationNamespaces) {}
+    public function __construct(array $presentationNamespaces)
+    {
+        $this->presentationLayer = new PresentationLayer($presentationNamespaces);
+    }
 
     public function getNodeType(): string
     {
@@ -51,16 +49,17 @@ final class NoModelWriteInPresentationRule implements Rule
             return [];
         }
 
-        if (! $node->name instanceof Identifier || ! in_array($node->name->toLowerString(), self::FORBIDDEN_METHODS, true)) {
+        if (! $node->name instanceof Identifier || ! in_array($node->name->toLowerString(), self::WRITE_METHODS, true)) {
             return [];
         }
 
-        $namespace = $this->presentationNamespace($scope);
+        $namespace = $this->presentationLayer->namespaceOf($scope);
 
-        if ($namespace === null || ! $this->isEloquent($this->calledOnType($node, $scope))) {
+        if ($namespace === null || ! PresentationLayer::isEloquent(PresentationLayer::calledOnType($node, $scope))) {
             return [];
         }
 
+        // Message kept from 1.2.0 so the baselines that froze these errors still match.
         return [
             RuleErrorBuilder::message(sprintf(
                 'Eloquent call %s() in %s: move the query or write into an action.',
@@ -70,42 +69,5 @@ final class NoModelWriteInPresentationRule implements Rule
                 ->identifier('laravelQuality.modelWriteInPresentation')
                 ->build(),
         ];
-    }
-
-    private function presentationNamespace(Scope $scope): ?string
-    {
-        $current = $scope->getNamespace() ?? '';
-
-        foreach ($this->presentationNamespaces as $namespace) {
-            $namespace = trim($namespace, '\\');
-
-            if ($current === $namespace || str_starts_with($current, $namespace.'\\')) {
-                return $namespace;
-            }
-        }
-
-        return null;
-    }
-
-    private function calledOnType(MethodCall|StaticCall $node, Scope $scope): Type
-    {
-        if (! $node instanceof StaticCall) {
-            return TypeCombinator::removeNull($scope->getType($node->var));
-        }
-
-        return $node->class instanceof Name
-            ? new ObjectType($scope->resolveName($node->class))
-            : $scope->getType($node->class);
-    }
-
-    private function isEloquent(Type $type): bool
-    {
-        foreach (self::ELOQUENT_CLASSES as $class) {
-            if ((new ObjectType($class))->isSuperTypeOf($type)->yes()) {
-                return true;
-            }
-        }
-
-        return false;
     }
 }

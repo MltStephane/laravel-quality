@@ -10,7 +10,7 @@ use Symfony\Component\Process\Process;
  *
  * @return array<int, string>
  */
-function laravelQualityErrors(string $parameters): array
+function laravelQualityErrors(string $parameters, string $path = 'tests/Fixtures/App'): array
 {
     $directory = sys_get_temp_dir().'/laravel-quality-phpstan-'.uniqid();
     $root = dirname(__DIR__, 2);
@@ -23,7 +23,7 @@ function laravelQualityErrors(string $parameters): array
         parameters:
             tmpDir: {$directory}/tmp
             paths:
-                - {$root}/tests/Fixtures/App
+                - {$root}/{$path}
         {$parameters}
         NEON);
 
@@ -51,18 +51,38 @@ function laravelQualityErrors(string $parameters): array
     return $identifiers;
 }
 
-it('registers every rule through extension.neon', function (): void {
+it('enables the default rules through extension.neon', function (): void {
     expect(laravelQualityErrors(''))->toBe([
+        'laravelQuality.broadCatchWithoutRethrow',
+        'laravelQuality.modelWriteInPresentation',
+        'laravelQuality.stringRole',
+    ]);
+});
+
+it('turns the opt-in rules on from the project config', function (): void {
+    expect(laravelQualityErrors(<<<'NEON'
+            laravelQuality:
+                noQueryInPresentation: true
+                missingLockedIdProperty: true
+        NEON))->toBe([
         'laravelQuality.broadCatchWithoutRethrow',
         'laravelQuality.missingLockedId',
         'laravelQuality.modelWriteInPresentation',
+        'laravelQuality.queryInPresentation',
         'laravelQuality.stringRole',
+    ]);
+});
+
+it('watches App\NativeComponents by default', function (): void {
+    expect(laravelQualityErrors('', 'tests/Fixtures/App/NativeComponents'))->toBe([
+        'laravelQuality.modelWriteInPresentation',
     ]);
 });
 
 it('turns rules off and replaces the presentation namespaces from the project config', function (): void {
     expect(laravelQualityErrors(<<<'NEON'
             laravelQuality:
+                noQueryInPresentation: true
                 noStringRole: false
                 noBroadCatchWithoutRethrow: false
                 missingLockedIdProperty: false

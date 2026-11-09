@@ -28,6 +28,13 @@ final class MissingLockedIdPropertyRuleTest extends RuleTestCase
         ]);
     }
 
+    public function test_it_skips_identifiers_marked_as_browser_inputs(): void
+    {
+        $this->analyse([__DIR__.'/../../Fixtures/App/Livewire/PickRestaurant.php'], [
+            ['Public Livewire property $cityId holds an identifier: add #[Locked] so the browser cannot change it.', 24],
+        ]);
+    }
+
     public function test_it_ignores_classes_that_are_not_livewire_components(): void
     {
         $this->analyse([__DIR__.'/../../Fixtures/App/Support/PlainObject.php'], []);
