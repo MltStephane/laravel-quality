@@ -41,7 +41,7 @@ final class InstallCommand extends Command
     {
         $this->publishPhpstanConfig($files);
         $this->publishStub($files, 'phpstan-baseline.neon.stub', base_path('phpstan-baseline.neon'));
-        $this->publishStub($files, 'pint.json', base_path('pint.json'));
+        $this->publishPintConfig($files);
         $this->publishStub($files, 'QualityTest.php.stub', base_path('tests/Architectures/QualityTest.php'));
         $this->addComposerScripts($files);
         $this->addArchitectureTestSuite($files);
@@ -74,6 +74,20 @@ final class InstallCommand extends Command
         foreach (PhpstanConfig::find($files, base_path())?->problems() ?? [] as $problem) {
             $this->components->warn($problem.' quality:check-config échouera.');
         }
+    }
+
+    /**
+     * Duster runs Pint with its own config: a published pint.json would override it.
+     */
+    private function publishPintConfig(Filesystem $files): void
+    {
+        if ($files->exists(base_path('duster.json'))) {
+            $this->components->twoColumnDetail('pint.json', 'non publié : le projet utilise Duster (duster.json)');
+
+            return;
+        }
+
+        $this->publishStub($files, 'pint.json', base_path('pint.json'));
     }
 
     private function publishHooks(Filesystem $files): void

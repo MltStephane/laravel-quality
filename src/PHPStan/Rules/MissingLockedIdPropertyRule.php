@@ -16,6 +16,8 @@ use PHPStan\Type\UnionType;
 
 /**
  * A public Livewire property is writable from the browser: an identifier stored there must be #[Locked].
+ * Off by default: an identifier bound by wire:model (a select, a filter) is meant to be written by the browser,
+ * and PHPStan does not read the views. #[Validate], #[Url] and #[Modelable] mark such inputs: they are skipped.
  *
  * @implements Rule<ClassPropertyNode>
  */
@@ -24,6 +26,15 @@ final class MissingLockedIdPropertyRule implements Rule
     private const string LIVEWIRE_COMPONENT = 'Livewire\Component';
 
     private const string LOCKED_ATTRIBUTE = 'Livewire\Attributes\Locked';
+
+    /**
+     * Attributes of a property the browser writes on purpose.
+     */
+    private const array INPUT_ATTRIBUTES = [
+        'Livewire\Attributes\Validate',
+        'Livewire\Attributes\Url',
+        'Livewire\Attributes\Modelable',
+    ];
 
     public function getNodeType(): string
     {
@@ -38,7 +49,7 @@ final class MissingLockedIdPropertyRule implements Rule
             return [];
         }
 
-        if (! $node->getClassReflection()->isSubclassOf(self::LIVEWIRE_COMPONENT) || ! $this->isIdentifierType($node) || $this->isLocked($node)) {
+        if (! $node->getClassReflection()->isSubclassOf(self::LIVEWIRE_COMPONENT) || ! $this->isIdentifierType($node) || $this->hasAttribute($node, [self::LOCKED_ATTRIBUTE, ...self::INPUT_ATTRIBUTES])) {
             return [];
         }
 
@@ -66,11 +77,14 @@ final class MissingLockedIdPropertyRule implements Rule
             && (new UnionType([new IntegerType, new StringType]))->isSuperTypeOf($type)->yes();
     }
 
-    private function isLocked(ClassPropertyNode $node): bool
+    /**
+     * @param  array<int, string>  $attributes
+     */
+    private function hasAttribute(ClassPropertyNode $node, array $attributes): bool
     {
         foreach ($node->getAttrGroups() as $group) {
             foreach ($group->attrs as $attribute) {
-                if ($attribute->name->toString() === self::LOCKED_ATTRIBUTE) {
+                if (in_array($attribute->name->toString(), $attributes, true)) {
                     return true;
                 }
             }

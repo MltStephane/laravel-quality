@@ -137,6 +137,17 @@ it('publishes the pint config without overwriting an existing one', function ():
     expect($this->files->get($this->projectPath.'/pint.json'))->toBe('{"preset": "psr12"}');
 });
 
+it('does not publish the pint config in a project that uses Duster', function (): void {
+    $this->files->put($this->projectPath.'/duster.json', '{"include": ["app"]}');
+
+    $this->artisan('quality:install')
+        ->expectsOutputToContain('le projet utilise Duster')
+        ->assertSuccessful();
+
+    expect($this->projectPath.'/pint.json')->not->toBeFile()
+        ->and($this->projectPath.'/phpstan.neon.dist')->toBeFile();
+});
+
 it('publishes the CI workflow and the git hooks only on demand', function (): void {
     $this->artisan('quality:install')->assertSuccessful();
 

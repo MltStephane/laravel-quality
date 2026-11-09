@@ -7,20 +7,25 @@ parameters:
     reportIgnoresWithoutComments: true
     # Read the casts declared in Model::casts() (dates, enums, custom casts), not only its return type.
     parseModelCastsMethod: true
-    # Each rule can be turned off with `false`. Lists merge with the project's values:
+    # Each rule can be turned on or off. Lists merge with the project's values:
     # write `presentationNamespaces!: [...]` to replace them.
     laravelQuality:
         noModelWriteInPresentation: true
+        # Opt-in: reading models in render() is common Livewire practice (see README).
+        noQueryInPresentation: false
         noStringRole: true
         noBroadCatchWithoutRethrow: true
-        missingLockedIdProperty: true
+        # Opt-in: identifiers bound by wire:model are false positives PHPStan cannot see (see README).
+        missingLockedIdProperty: false
         presentationNamespaces:
             - App\Livewire
             - App\Http
+            - App\NativeComponents
 
 parametersSchema:
     laravelQuality: structure([
         noModelWriteInPresentation: bool(),
+        noQueryInPresentation: bool(),
         noStringRole: bool(),
         noBroadCatchWithoutRethrow: bool(),
         missingLockedIdProperty: bool(),
@@ -30,6 +35,8 @@ parametersSchema:
 conditionalTags:
     MltStephane\LaravelQuality\PHPStan\Rules\NoModelWriteInPresentationRule:
         phpstan.rules.rule: %laravelQuality.noModelWriteInPresentation%
+    MltStephane\LaravelQuality\PHPStan\Rules\NoQueryInPresentationRule:
+        phpstan.rules.rule: %laravelQuality.noQueryInPresentation%
     MltStephane\LaravelQuality\PHPStan\Rules\NoStringRoleRule:
         phpstan.rules.rule: %laravelQuality.noStringRole%
     MltStephane\LaravelQuality\PHPStan\Rules\NoBroadCatchWithoutRethrowRule:
@@ -40,6 +47,10 @@ conditionalTags:
 services:
     -
         class: MltStephane\LaravelQuality\PHPStan\Rules\NoModelWriteInPresentationRule
+        arguments:
+            presentationNamespaces: %laravelQuality.presentationNamespaces%
+    -
+        class: MltStephane\LaravelQuality\PHPStan\Rules\NoQueryInPresentationRule
         arguments:
             presentationNamespaces: %laravelQuality.presentationNamespaces%
     - MltStephane\LaravelQuality\PHPStan\Rules\NoStringRoleRule
